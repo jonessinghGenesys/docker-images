@@ -11,6 +11,7 @@
 #               2 = PDB is not open in required mode
 #               3 = Sql Plus execution failed
 #               4 = Observer is not running
+#               5 = Instance is not running
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
 # 
 
@@ -29,6 +30,34 @@ EOF
 
    if [ $ret -eq 0 ] && [ "$DB_ROLE" != "PRIMARY" ] && [ "$DB_ROLE" != "PHYSICAL STANDBY" ]; then
       exit 1
+   elif [ $ret -ne 0 ]; then
+      exit 3
+   fi
+}
+
+# Function to check if database is open and active
+checkInstanceStatus() {
+   # Obtain STATUS for DB using SQLPlus
+   DB_OPEN_STATUS=$(sqlplus -s / << EOF
+set heading off;
+set pagesize 0;
+SELECT STATUS FROM V\$INSTANCE;
+exit;
+EOF
+)
+
+  DB_STATUS=$(sqlplus -s / << EOF
+set heading off;
+set pagesize 0;
+SELECT DATABASE_STATUS FROM V\$INSTANCE;
+exit;
+EOF
+)
+   # Store return code from SQL*Plus
+   ret=$?
+
+   if [ $ret -eq 0 ] && [ "$DB_OPEN_STATUS" != "OPEN" ] && [ "$DB_STATUS" != "ACTIVE" ]; then
+      exit 5
    elif [ $ret -ne 0 ]; then
       exit 3
    fi
@@ -86,6 +115,7 @@ else
    ORAENV_ASK=NO
    source oraenv
    checkDatabaseRole
-   checkPDBOpen
+   checkInstanceStatus
+   #checkPDBOpen
 fi
 exit 0
